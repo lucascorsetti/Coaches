@@ -226,7 +226,39 @@ export class SupabaseEnrollmentRepository implements IEnrollmentRepository {
 
 ### Step 3: Connect Existing IHDP Navigation & Auth
 
-1. In IHDP's top-level navigation, map the route `/courses` to the `CourseCatalog` component.
+1. In IHDP's top-level navigation, map the route `/courses` to the `CoursesContent` component.
 2. Learner view automatically resolves the logged-in coach's `user.id`.
 3. If user has no enrollments, the empty state displays contact details.
 4. If enrolled, the user proceeds with progressive modules and assessments.
+
+---
+
+## 3. IHDP Integration Contract
+
+The integration contract establishes a strict, clean boundary between the **Host IHDP Platform** and the **Courses Engine**:
+
+### What Host IHDP Platform Provides:
+- **Authenticated User Session**: Existing Supabase user record (`auth.users`) and JWT session.
+- **Role-Based Access Control (RBAC)**: Host roles (`admin`, `head_coach`, `author`, `coach`, `referee`) mapped through `UserAdapter.getPermissions()`.
+- **Platform Shell**: Host header, top-level navigation, and application switcher (`coach-education` / `Courses`).
+- **Branding & Theme Tokens**: Single configuration source in `src/config/branding.ts`.
+- **Localization Provider**: Host language context bridge via `LanguageAdapter` (`useCoursesTranslation`).
+- **Persistence SDK**: Supabase client connection for database queries.
+
+### What Courses Engine Provides:
+- **Course Authoring Workbench**: Block-based curriculum editor, module organizer, and media blocks (`HeadingBlock`, `TextBlock`, `ImageBlock`, `VideoBlock`, `DocumentBlock`, `ScenarioBlock`, `AssessmentBlock`).
+- **Learner Experience Player**: Progressive syllabus player, video tracking, scenario branches, and interactive tests.
+- **Assessment & Examination Engine**: Multiple-choice, multiple-select, true/false, scoring, and automated pass/fail evaluations.
+- **Private Enrollment Gatekeeper**: Authorization checks at the data and page level (`checkUserAccess`).
+- **Progress Tracking & Analytics**: Granular completion tracking tied directly to `enrollmentId`.
+- **Course Product Code Resolution**: Silent internal identifier (`courseCode`) matching external registration/payment events to automate enrollment.
+- **Self-Contained UI Primitives**: Standardized federation components (`PageHeader`, `Badge`, `Button`, `Modal`, `EmptyState`, `ProgressBar`).
+
+---
+
+## 4. Application Switcher & Shell Boundary
+
+The standalone codebase provides two distinct mount points:
+1. **`CoursesShell`**: Standalone shell providing mock host context for testing outside IHDP.
+2. **`CoursesContent`**: The pure Courses feature module. **When migrating into IHDP, mount `CoursesContent` directly into the host router under `/courses` or `/education`**.
+

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40" fill="none">
+  <!-- FISG IHDP Badge -->
+  <rect width="36" height="36" x="2" y="2" rx="8" fill="#2563EB"/>
+  <path d="M12 11h16v4H12zM12 18h11v4H12zM12 25h16v4H12z" fill="#FFFFFF"/>
+  <text x="46" y="19" fill="#FFFFFF" font-family="Inter, sans-serif" font-size="13" font-weight="800" letter-spacing="0.5">IHDP</text>
+  <text x="46" y="31" fill="#94A3B8" font-family="Inter, sans-serif" font-size="9" font-weight="600">FISG ITALIA</text>
+</svg>

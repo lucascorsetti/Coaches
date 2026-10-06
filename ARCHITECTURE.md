@@ -163,3 +163,44 @@ export interface CourseRegistration {
 ### 5.4 Course Codes Never Bypass Security
 Course codes never bypass normal enrollment. Knowing or typing a code does not grant learner access directly; instead, confirmed external transactions create an authorized `Enrollment` record, which remains the single source of truth for authorization checks.
 
+---
+
+## 6. Platform Integration Architecture & Adapter Layer
+
+To ensure seamless integration with the host **FISG Italia Hockey – IHDP** platform without code rewrites, the engine encapsulates platform interactions behind clean integration adapters in `src/integration/`:
+
+```
+Host IHDP Shell (Header, RBAC, App Switcher)
+                        │
+                        ▼
+            ┌───────────────────────┐
+            │   Integration Layer   │
+            │   (src/integration/)  │
+            └───────────┬───────────┘
+                        │
+        ┌───────────────┼───────────────┬────────────────┐
+        ▼               ▼               ▼                ▼
+   UserAdapter   BrandingAdapter LanguageAdapter CourseRegistrationResolver
+   (RBAC & Maps)   (Tokens/Logo)   (Translation)   (Code -> Enrollment)
+        │               │               │                │
+        └───────────────┴───────┬───────┴────────────────┘
+                                ▼
+                       Courses Engine
+                   (src/components/shell/CoursesContent)
+                                │
+        ┌───────────────────────┼────────────────────────┐
+        ▼                       ▼                        ▼
+ Learner Experience    Authoring Workbench       Enrollment Manager
+(CourseCatalog/Player) (Editor/AssessmentBuilder) (Access & Progress Drilldowns)
+```
+
+### 6.1 Application Identity Mapping
+- **Host Application ID**: `coach-education`
+- **Display Name**: `Courses` / `Corsi`
+- **Configuration Hub**: `src/config/branding.ts` provides a single source of truth for organization labels, logo assets, design tokens, and document titles.
+
+### 6.2 Application Switcher & Shell Isolation
+- `CoursesShell`: Mounts the official IHDP compact header, application switcher (`coach-education` active), and user persona controls.
+- `CoursesContent`: Self-contained feature component that can be moved directly into the real IHDP router without bringing along the standalone wrapper.
+
+
