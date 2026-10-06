@@ -30,6 +30,28 @@ export class LocalStorageAssessmentRepository implements IAssessmentRepository {
     }
   }
 
+  async getAssessmentByItem(learningItemId: string): Promise<Assessment | null> {
+    this.ensureInitialized();
+    try {
+      const raw = localStorage.getItem(ASSESSMENTS_KEY);
+      const list: Assessment[] = raw ? JSON.parse(raw) : DEMO_ASSESSMENTS;
+      return list.find((a) => a.learningItemId === learningItemId) || null;
+    } catch {
+      return null;
+    }
+  }
+
+  async getAssessmentsByCourse(courseId: string): Promise<Assessment[]> {
+    this.ensureInitialized();
+    try {
+      const raw = localStorage.getItem(ASSESSMENTS_KEY);
+      const list: Assessment[] = raw ? JSON.parse(raw) : DEMO_ASSESSMENTS;
+      return list.filter((a) => a.courseId === courseId);
+    } catch {
+      return [];
+    }
+  }
+
   async saveAssessment(assessment: Assessment): Promise<Assessment> {
     this.ensureInitialized();
     const raw = localStorage.getItem(ASSESSMENTS_KEY);
@@ -44,12 +66,28 @@ export class LocalStorageAssessmentRepository implements IAssessmentRepository {
     return assessment;
   }
 
-  async getAttempts(userId: string, assessmentId: string): Promise<Attempt[]> {
+  async deleteAssessment(id: string): Promise<boolean> {
+    this.ensureInitialized();
+    const raw = localStorage.getItem(ASSESSMENTS_KEY);
+    const list: Assessment[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((a) => a.id !== id);
+    localStorage.setItem(ASSESSMENTS_KEY, JSON.stringify(filtered));
+    return true;
+  }
+
+  async getAttempts(userId: string, assessmentId: string, enrollmentId?: string): Promise<Attempt[]> {
     this.ensureInitialized();
     try {
       const raw = localStorage.getItem(ATTEMPTS_KEY);
       const list: Attempt[] = raw ? JSON.parse(raw) : [];
-      return list.filter((at) => at.userId === userId && at.assessmentId === assessmentId);
+      return list.filter((at) => {
+        const matchUser = at.userId === userId;
+        const matchAssess = at.assessmentId === assessmentId;
+        if (enrollmentId && at.enrollmentId) {
+          return matchUser && matchAssess && at.enrollmentId === enrollmentId;
+        }
+        return matchUser && matchAssess;
+      });
     } catch {
       return [];
     }

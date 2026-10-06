@@ -102,3 +102,64 @@ The visual language follows the **FISG Italia Hockey - IHDP** design standard:
   - `Inter` for standard UI copy.
   - `JetBrains Mono` for course codes, levels, durations, and metrics.
 - **Bilingual**: Complete English (`en`) and Italian (`it`) support out of the box.
+
+---
+
+## 5. Course Product Code & Registration Matching Architecture
+
+### 5.1 Purpose & Role of `courseCode`
+Every course possesses a required, unique internal **course product code** (`courseCode: string`):
+- **Coaching → Maestro di Base**: `10001`
+- **Coaching → Level 1**: `10002`
+- **Refereeing → Beginner / Level 1**: `20001`
+
+**Critical Design Boundaries**:
+- The code is a **silent internal matching key**, NOT a password, user access code, or authentication token.
+- It is visible to federation administrators and course authors, but **not prominently displayed to learners**.
+- Internal relational integrity is strictly maintained by UUIDs (`Enrollment.courseId → Course.id`); the code is solely an external integration matching identifier.
+- Unique across all courses: enforced via `courseRepository.validateCourseCode(courseCode, excludeCourseId)`. Duplicate codes are rejected when creating or updating courses.
+
+### 5.2 External Registration & Payment Matching Pipeline
+When an external federation ticketing or registration platform completes a payment, it emits a confirmed transaction:
+```
+External Confirmation: { user: "Mario Rossi", courseCode: "10001", status: "confirmed" }
+                                 │
+                                 ▼
+                     Internal Resolution:
+                 CourseRepository.getCourseByCode("10001")
+                                 │
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+            Found (Valid)                  Not Found (Invalid)
+                 │                               │
+        Creates Active Enrollment:         Logs Failed Registration:
+   Enrollment {                                CourseRegistration {
+     userId: "mario-rossi",                      userId: "mario-rossi",
+     courseId: "course-demo-101",                courseCode: "99999",
+     status: 'active'                            status: 'failed',
+   }                                             notes: 'Unknown code'
+                 │                             }
+                 ▼                               │
+      Mario Rossi logs in:                       ▼
+   Sees course in "My Courses"            Access Remains Restricted
+```
+
+### 5.3 Registration Domain Model
+```typescript
+export interface CourseRegistration {
+  id: string;
+  userId: string;
+  courseCode: string;
+  status: 'pending' | 'confirmed' | 'failed' | 'cancelled';
+  source: string; // e.g. 'external_registration_portal', 'federation_desk'
+  createdAt: string;
+  confirmedAt?: string;
+  processedAt?: string;
+  enrollmentId?: string;
+  notes?: string;
+}
+```
+
+### 5.4 Course Codes Never Bypass Security
+Course codes never bypass normal enrollment. Knowing or typing a code does not grant learner access directly; instead, confirmed external transactions create an authorized `Enrollment` record, which remains the single source of truth for authorization checks.
+

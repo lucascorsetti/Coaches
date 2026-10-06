@@ -8,7 +8,7 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
-  // Category & course permissions for Authors
+  // Category & course permissions for Authors (clean IDs, no loose string matching)
   assignedCategoryIds?: string[]; // e.g. ['cat-coaching']
   assignedCourseIds?: string[];   // e.g. ['course-demo-101']
 }
@@ -20,6 +20,7 @@ export interface CourseCompletionRules {
   requireAllLessons: boolean;
   requireAllAssessmentsPassed: boolean;
   minimumPassingScore?: number;
+  requiredItemIds?: string[];
 }
 
 export interface Category {
@@ -35,6 +36,8 @@ export interface Category {
 
 export interface Course {
   id: string;
+  /** Unique internal course/product code for future external registration/payment matching (e.g. '10001') */
+  courseCode: string;
   title: string;
   shortTitle?: string;
   categoryId: string;
@@ -46,6 +49,7 @@ export interface Course {
   accessPolicy?: CourseAccessPolicy; // default 'private' (enrollment required)
   completionRules?: CourseCompletionRules;
   authors: string[];
+  authorUserIds?: string[]; // Stable user IDs of authorized authors
   createdAt: string;
   updatedAt: string;
   publishedAt?: string;
@@ -92,12 +96,92 @@ export type ContentBlockType =
   | 'assessment'
   | 'assignment';
 
+// Discriminated Unions for Content Block Data
+export interface HeadingBlockData {
+  text: string;
+  subtitle?: string;
+  level?: number;
+}
+
+export interface TextBlockData {
+  content: string;
+}
+
+export interface ImageBlockData {
+  url: string;
+  caption?: string;
+  alt?: string;
+}
+
+export interface VideoBlockData {
+  title: string;
+  sourceUrl: string;
+  durationMinutes?: number;
+  thumbnail?: string;
+}
+
+export interface DocumentBlockData {
+  title: string;
+  fileUrl: string;
+  fileSize?: string;
+  format?: string;
+}
+
+export interface CalloutBlockData {
+  style: 'info' | 'warning' | 'tip' | 'rule' | 'success';
+  title: string;
+  text: string;
+}
+
+export interface QuestionBlockData {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation?: string;
+}
+
+export interface ScenarioChoice {
+  id: string;
+  text: string;
+  feedback: string;
+  isCorrect: boolean;
+}
+
+export interface ScenarioBlockData {
+  title: string;
+  situation: string;
+  choices: ScenarioChoice[];
+}
+
+export interface AssessmentBlockData {
+  assessmentId: string;
+  title?: string;
+}
+
+export interface AssignmentBlockData {
+  prompt: string;
+  rubric?: string;
+}
+
+export type ContentBlockData =
+  | HeadingBlockData
+  | TextBlockData
+  | ImageBlockData
+  | VideoBlockData
+  | DocumentBlockData
+  | CalloutBlockData
+  | QuestionBlockData
+  | ScenarioBlockData
+  | AssessmentBlockData
+  | AssignmentBlockData
+  | Record<string, unknown>;
+
 export interface ContentBlock {
   id: string;
   learningItemId: string;
   type: ContentBlockType;
   order: number;
-  data: Record<string, any>;
+  data: ContentBlockData;
 }
 
 export type QuestionType = 'multiple-choice' | 'multiple-select' | 'true-false' | 'ordering' | 'scenario';
@@ -120,8 +204,9 @@ export interface Question {
 
 export interface Assessment {
   id: string;
-  courseId?: string;
+  courseId: string;
   moduleId?: string;
+  learningItemId?: string;
   title: string;
   description?: string;
   passingScore: number;
@@ -138,7 +223,7 @@ export interface Attempt {
   score: number;
   passed: boolean;
   attemptNumber: number;
-  answers: Record<string, any>;
+  answers: Record<string, unknown>;
   submittedAt: string;
 }
 
@@ -155,6 +240,22 @@ export interface Enrollment {
   completionDate?: string;
   assignedBy: string;
   expirationDate?: string;
+  notes?: string;
+}
+
+// FUTURE REGISTRATION / PURCHASE MODEL
+export type RegistrationStatus = 'pending' | 'confirmed' | 'failed' | 'cancelled';
+
+export interface CourseRegistration {
+  id: string;
+  userId: string;
+  courseCode: string;
+  status: RegistrationStatus;
+  source: string; // e.g. 'external_registration_portal', 'federation_desk', 'simulation'
+  createdAt: string;
+  confirmedAt?: string;
+  processedAt?: string;
+  enrollmentId?: string;
   notes?: string;
 }
 

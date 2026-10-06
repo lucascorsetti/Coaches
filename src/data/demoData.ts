@@ -7,7 +7,8 @@ import {
   Assessment,
   Enrollment,
   Progress,
-  User
+  User,
+  CourseRegistration
 } from '../types';
 
 export const DEMO_USERS: User[] = [
@@ -84,6 +85,7 @@ export const DEMO_CATEGORIES: Category[] = [
 export const DEMO_COURSES: Course[] = [
   {
     id: 'course-demo-101',
+    courseCode: '10001',
     title: 'Demo Coaching Foundation (Maestro di Base)',
     shortTitle: 'Coaching Foundation',
     categoryId: 'cat-coaching',
@@ -99,12 +101,14 @@ export const DEMO_COURSES: Course[] = [
       minimumPassingScore: 75
     },
     authors: ['Lucas Corsetti (Head of Coaches)'],
+    authorUserIds: ['user-author-coaching'],
     createdAt: '2026-10-01',
     updatedAt: '2026-10-05',
     publishedAt: '2026-10-05'
   },
   {
     id: 'course-demo-ref-101',
+    courseCode: '20001',
     title: 'Demo Refereeing: Basic Game Protocols',
     shortTitle: 'Refereeing Level 1',
     categoryId: 'cat-refereeing',
@@ -120,6 +124,7 @@ export const DEMO_COURSES: Course[] = [
       minimumPassingScore: 70
     },
     authors: ['Matteo Vian (Head of Officiating)'],
+    authorUserIds: ['user-author-refereeing'],
     createdAt: '2026-10-02',
     updatedAt: '2026-10-06',
     publishedAt: '2026-10-06'
@@ -730,5 +735,32 @@ export const DEMO_PROGRESS: Progress[] = [
     completed: true,
     completedAt: '2026-10-03T15:30:00Z',
     lastActivityAt: '2026-10-03T15:30:00Z'
+  }
+];
+
+export const DEMO_REGISTRATIONS: CourseRegistration[] = [
+  {
+    id: 'reg-demo-1',
+    userId: 'user-learner-a',
+    courseCode: '10001',
+    status: 'confirmed',
+    source: 'external_registration_portal',
+    createdAt: '2026-10-01T08:30:00Z',
+    confirmedAt: '2026-10-01T08:35:00Z',
+    processedAt: '2026-10-01T09:00:00Z',
+    enrollmentId: 'enr-learner-a-coach',
+    notes: 'External payment and registration receipt #INV-10001-A'
+  },
+  {
+    id: 'reg-demo-2',
+    userId: 'user-learner-b',
+    courseCode: '20001',
+    status: 'confirmed',
+    source: 'external_registration_portal',
+    createdAt: '2026-10-02T10:00:00Z',
+    confirmedAt: '2026-10-02T10:05:00Z',
+    processedAt: '2026-10-02T10:30:00Z',
+    enrollmentId: 'enr-learner-b-ref',
+    notes: 'External payment and registration receipt #INV-20001-B'
   }
 ];

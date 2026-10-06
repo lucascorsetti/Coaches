@@ -212,6 +212,7 @@ CREATE TABLE IF NOT EXISTS course_categories (
 -- 2. Courses Table
 CREATE TABLE IF NOT EXISTS courses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_code TEXT UNIQUE NOT NULL, -- Internal product code for external registration matching (e.g. '10001')
   title TEXT NOT NULL,
   short_title TEXT,
   category_id UUID REFERENCES course_categories(id) ON DELETE RESTRICT,
@@ -316,6 +317,20 @@ CREATE TABLE IF NOT EXISTS assessment_attempts (
   attempt_number INT NOT NULL,
   answers JSONB NOT NULL DEFAULT '{}'::jsonb,
   submitted_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 9. External Course Registrations / Payment Ledger (Future matching store)
+CREATE TABLE IF NOT EXISTS course_registrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  course_code TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('pending', 'confirmed', 'failed', 'cancelled')),
+  source TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  confirmed_at TIMESTAMPTZ,
+  processed_at TIMESTAMPTZ,
+  enrollment_id UUID REFERENCES course_enrollments(id) ON DELETE SET NULL,
+  notes TEXT
 );
 
 -- Row Level Security (RLS)

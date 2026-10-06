@@ -56,10 +56,46 @@ export class LocalStorageCourseRepository implements ICourseRepository {
     return courses.find((c) => c.id === id) || null;
   }
 
+  async getCourseByCode(courseCode: string): Promise<Course | null> {
+    if (!courseCode) return null;
+    const courses = await this.getAllCourses();
+    const normalized = courseCode.trim().toLowerCase();
+    return courses.find((c) => c.courseCode && c.courseCode.trim().toLowerCase() === normalized) || null;
+  }
+
+  async validateCourseCode(courseCode: string, excludeCourseId?: string): Promise<{ valid: boolean; error?: string }> {
+    const normalized = (courseCode || '').trim().toLowerCase();
+    if (!normalized) {
+      return { valid: false, error: 'Course product code is required' };
+    }
+    const courses = await this.getAllCourses();
+    const existing = courses.find(
+      (c) => c.courseCode && c.courseCode.trim().toLowerCase() === normalized && c.id !== excludeCourseId
+    );
+    if (existing) {
+      return { 
+        valid: false, 
+        error: `Course code "${courseCode}" is already in use by course "${existing.title}". Course codes must be unique.` 
+      };
+    }
+    return { valid: true };
+  }
+
   async saveCourse(course: Course): Promise<Course> {
     const courses = await this.getAllCourses();
+    
+    // Validate uniqueness of courseCode
+    const validation = await this.validateCourseCode(course.courseCode, course.id);
+    if (!validation.valid) {
+      throw new Error(validation.error || 'Invalid course code');
+    }
+
     const index = courses.findIndex((c) => c.id === course.id);
-    const updated = { ...course, updatedAt: new Date().toISOString() };
+    const updated = { 
+      ...course, 
+      courseCode: course.courseCode.trim(),
+      updatedAt: new Date().toISOString() 
+    };
     if (index >= 0) {
       courses[index] = updated;
     } else {

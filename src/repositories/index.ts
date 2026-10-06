@@ -5,6 +5,7 @@ import { LocalStorageProgressRepository } from './localStorage/progressRepositor
 import { LocalStorageSubmissionRepository } from './localStorage/submissionRepository';
 import { LocalStorageEnrollmentRepository } from './localStorage/enrollmentRepository';
 import { LocalStorageUserRepository } from './localStorage/userRepository';
+import { LocalStorageRegistrationService } from './localStorage/registrationService';
 import {
   ICourseRepository,
   ICategoryRepository,
@@ -12,7 +13,8 @@ import {
   IProgressRepository,
   ISubmissionRepository,
   IEnrollmentRepository,
-  IUserRepository
+  IUserRepository,
+  IRegistrationService
 } from './interfaces';
 
 // Export instantiated repositories.
@@ -25,5 +27,6 @@ export const progressRepository: IProgressRepository = new LocalStorageProgressR
 export const submissionRepository: ISubmissionRepository = new LocalStorageSubmissionRepository();
 export const enrollmentRepository: IEnrollmentRepository = new LocalStorageEnrollmentRepository();
 export const userRepository: IUserRepository = new LocalStorageUserRepository();
+export const registrationService: IRegistrationService = new LocalStorageRegistrationService();
 
 export * from './interfaces';

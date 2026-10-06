@@ -103,9 +103,13 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({
         }
       }
 
-      // Check for course-level assessment
-      const assess = await assessmentRepository.getAssessmentById('assess-demo-1');
-      setAssessment(assess);
+      // Check for assessments belonging to this course
+      const courseAssessments = await assessmentRepository.getAssessmentsByCourse(courseId);
+      if (courseAssessments.length > 0) {
+        setAssessment(courseAssessments[0]);
+      } else {
+        setAssessment(null);
+      }
     }
     loadData();
   }, [courseId]);
@@ -116,6 +120,16 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({
       if (selectedItemId) {
         const blks = await courseRepository.getBlocksByItemId(selectedItemId);
         setCurrentBlocks(blks);
+
+        // If block is an assessment, load its actual linked assessment
+        const assessBlock = blks.find((b) => b.type === 'assessment');
+        if (assessBlock && assessBlock.data) {
+          const aId = (assessBlock.data as { assessmentId?: string }).assessmentId;
+          if (aId) {
+            const linked = await assessmentRepository.getAssessmentById(aId);
+            if (linked) setAssessment(linked);
+          }
+        }
       } else {
         setCurrentBlocks([]);
       }
@@ -134,17 +148,31 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({
 
   const handleSaveCourse = async (newStatus?: Course['status']) => {
     setIsSaving(true);
+    
+    // Validate course code uniqueness & presence
+    const validation = await courseRepository.validateCourseCode(course.courseCode, course.id);
+    if (!validation.valid) {
+      alert(validation.error || 'Invalid course code');
+      setIsSaving(false);
+      return;
+    }
+
     const updated = {
       ...course,
       status: newStatus || course.status,
       updatedAt: new Date().toISOString(),
-      publishedAt: newStatus === 'published' ? new Date().toISOString() : course.publishedAt
+      publishedAt: newStatus === 'published' ? (course.publishedAt || new Date().toISOString()) : course.publishedAt
     };
-    await courseRepository.saveCourse(updated);
-    setCourse(updated);
-    setIsSaving(false);
-    setSaveSuccessMessage(true);
-    setTimeout(() => setSaveSuccessMessage(false), 2500);
+    try {
+      await courseRepository.saveCourse(updated);
+      setCourse(updated);
+      setIsSaving(false);
+      setSaveSuccessMessage(true);
+      setTimeout(() => setSaveSuccessMessage(false), 2500);
+    } catch (err: any) {
+      alert(err.message || 'Error saving course');
+      setIsSaving(false);
+    }
   };
 
   // --- Module Operations ---
@@ -801,13 +829,36 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({
               />
             </div>
 
+            {/* Course Product Code (Internal Matching Key) */}
+            <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3.5 space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="block text-amber-950 font-semibold text-xs">
+                  Course Product Code (Internal Matching Key) *
+                </label>
+                <span className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-amber-200/70 text-amber-900 border border-amber-300">
+                  Required & Unique
+                </span>
+              </div>
+              <input
+                type="text"
+                value={course.courseCode || ''}
+                onChange={(e) => handleUpdateCourseMeta({ courseCode: e.target.value })}
+                placeholder="e.g. 10001, 10002, 20001"
+                className="w-full bg-white border border-amber-300 rounded-lg p-2.5 font-mono text-sm text-slate-900 focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              />
+              <p className="text-[11px] text-amber-900/80 leading-relaxed">
+                Silent internal identifier matching external registration & purchase events (e.g. <code className="font-mono font-bold">10001</code>). Visible to authors and administrators; never prominently displayed to learners.
+              </p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">Short Title / Code</label>
+                <label className="block text-slate-700 font-semibold mb-1">Short Display Title</label>
                 <input
                   type="text"
-                  value={course.shortTitle}
+                  value={course.shortTitle || ''}
                   onChange={(e) => handleUpdateCourseMeta({ shortTitle: e.target.value })}
+                  placeholder="e.g. Coaching Foundation"
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 focus:bg-white"
                 />
               </div>

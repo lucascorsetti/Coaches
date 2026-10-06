@@ -83,7 +83,9 @@ const AppContent: React.FC = () => {
         {activeView === 'docs' && <EngineDocs />}
 
         {/* VIEW 2: COURSE ENROLLMENTS & LEARNER MANAGEMENT */}
-        {activeView === 'enrollments' && <EnrollmentManager />}
+        {activeView === 'enrollments' && (
+          <EnrollmentManager onNavigateToCatalog={() => handleNavigate('catalog')} />
+        )}
 
         {/* VIEW 3: MY COURSES & LEARNER EXPERIENCE (STRICT ENROLLMENT ACCESS) */}
         {activeView === 'catalog' && (

@@ -40,7 +40,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                 type="text"
                 value={data.text || ''}
                 onChange={(e) => updateData({ text: e.target.value })}
-                placeholder="e.g. Safety Briefing & Rink Protocol"
+                placeholder="Enter section heading..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 focus:bg-white focus:border-blue-500 text-xs"
               />
             </div>
@@ -63,7 +63,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               type="text"
               value={data.subtitle || ''}
               onChange={(e) => updateData({ subtitle: e.target.value })}
-              placeholder="e.g. Core guidelines for ice facility check"
+              placeholder="Enter section subtitle or summary..."
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -80,7 +80,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
             rows={5}
             value={data.content || ''}
             onChange={(e) => updateData({ content: e.target.value })}
-            placeholder="Type your coaching guidance, bullet points, and learning instructions..."
+            placeholder="Enter lesson text, explanation, bullet points, and learning instructions..."
             className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-900 focus:bg-white focus:border-blue-500 text-xs leading-relaxed"
           />
           <div className="text-[11px] text-slate-400 font-mono">
@@ -95,12 +95,12 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
       return (
         <div className="space-y-3 text-xs">
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Image URL or Storage Placeholder</label>
+            <label className="block text-slate-700 font-semibold mb-1">Image URL or Storage Reference</label>
             <input
               type="text"
               value={data.url || ''}
               onChange={(e) => updateData({ url: e.target.value })}
-              placeholder="https://images.unsplash.com/photo-..."
+              placeholder="https://example.com/diagram.jpg"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -111,7 +111,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                 type="text"
                 value={data.caption || ''}
                 onChange={(e) => updateData({ caption: e.target.value })}
-                placeholder="Figure 1: Drill setup on half-ice"
+                placeholder="Figure 1: Explanatory diagram or photo"
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
               />
             </div>
@@ -141,7 +141,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                 type="text"
                 value={data.title || ''}
                 onChange={(e) => updateData({ title: e.target.value })}
-                placeholder="e.g. Forecheck Demonstration Breakdown"
+                placeholder="e.g. Topic Demonstration and Walkthrough"
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
               />
             </div>
@@ -162,7 +162,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               type="text"
               value={data.sourceUrl || ''}
               onChange={(e) => updateData({ sourceUrl: e.target.value })}
-              placeholder="e.g. https://storage.fisg.it/courses/drills/forecheck.mp4"
+              placeholder="https://example.com/video.mp4"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -181,7 +181,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                 type="text"
                 value={data.title || ''}
                 onChange={(e) => updateData({ title: e.target.value })}
-                placeholder="e.g. Season Periodization Chart"
+                placeholder="e.g. Reference Guide or Study Material"
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
               />
             </div>
@@ -189,7 +189,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               <label className="block text-slate-700 font-semibold mb-1">File Format & Size</label>
               <input
                 type="text"
-                value={`${data.format || 'PDF'} (${data.fileSize || '1.5 MB'})`}
+                value={`${data.format || 'PDF'} (${data.fileSize || '1.0 MB'})`}
                 onChange={(e) => updateData({ format: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
               />
@@ -201,7 +201,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               type="text"
               value={data.fileUrl || ''}
               onChange={(e) => updateData({ fileUrl: e.target.value })}
-              placeholder="https://storage.fisg.it/documents/template.pdf"
+              placeholder="https://example.com/document.pdf"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -222,9 +222,9 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
               >
                 <option value="info">🔵 Information</option>
-                <option value="tip">🟢 Coaching Tip</option>
-                <option value="warning">🟡 Safety Caution</option>
-                <option value="rule">🔴 Mandatory Rule</option>
+                <option value="tip">🟢 Key Tip</option>
+                <option value="warning">🟡 Caution</option>
+                <option value="rule">🔴 Important Rule</option>
               </select>
             </div>
             <div className="col-span-2">
@@ -233,7 +233,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                 type="text"
                 value={data.title || ''}
                 onChange={(e) => updateData({ title: e.target.value })}
-                placeholder="e.g. Zero Tolerance Protocol"
+                placeholder="e.g. Important Takeaway"
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
               />
             </div>
@@ -244,7 +244,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               rows={2}
               value={data.text || ''}
               onChange={(e) => updateData({ text: e.target.value })}
-              placeholder="Enter the critical instruction for coaches..."
+              placeholder="Enter callout note or instruction for learners..."
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -283,13 +283,13 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               type="text"
               value={data.question || ''}
               onChange={(e) => updateData({ question: e.target.value })}
-              placeholder="e.g. What is the maximum recommended time between drill shifts?"
+              placeholder="Enter question text..."
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="block text-slate-700 font-semibold">Answer Choices (Check the radio of the correct answer):</label>
+            <label className="block text-slate-700 font-semibold">Answer Choices (Select correct answer):</label>
             {options.map((opt, idx) => (
               <div key={idx} className="flex items-center gap-2">
                 <input
@@ -303,6 +303,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
                   type="text"
                   value={opt}
                   onChange={(e) => handleOptionChange(idx, e.target.value)}
+                  placeholder={`Choice ${idx + 1}`}
                   className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-1.5 text-slate-900 text-xs"
                 />
                 <button
@@ -325,7 +326,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
           </div>
 
           <div>
-            <label className="block text-slate-700 font-semibold mb-1">Coach Explanation (Shown after answering)</label>
+            <label className="block text-slate-700 font-semibold mb-1">Explanation (Shown after answering)</label>
             <input
               type="text"
               value={data.explanation || ''}
@@ -348,7 +349,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               type="text"
               value={data.title || ''}
               onChange={(e) => updateData({ title: e.target.value })}
-              placeholder="e.g. Bench Gate Latch Failure During Warmup"
+              placeholder="e.g. Case Study or Decision Dilemma"
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -358,7 +359,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               rows={2}
               value={data.situation || ''}
               onChange={(e) => updateData({ situation: e.target.value })}
-              placeholder="Describe the unexpected event on the ice..."
+              placeholder="Describe the situation and choices for the learner..."
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -380,7 +381,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               rows={3}
               value={data.prompt || ''}
               onChange={(e) => updateData({ prompt: e.target.value })}
-              placeholder="e.g. Submit a 3-station practice plan for U13 athletes focusing on transitional breakouts..."
+              placeholder="Enter assignment requirements and instructions..."
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>
@@ -390,7 +391,7 @@ export const BlockEditor: React.FC<BlockEditorProps> = ({ block, onChange }) => 
               type="text"
               value={data.rubric || ''}
               onChange={(e) => updateData({ rubric: e.target.value })}
-              placeholder="e.g. Criteria: 80% puck time, clear diagrams, safety boundaries"
+              placeholder="Enter grading rubric and evaluation criteria..."
               className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-900 text-xs"
             />
           </div>

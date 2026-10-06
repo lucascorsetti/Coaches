@@ -37,12 +37,22 @@ import {
   Calendar,
   Layers,
   ShieldCheck,
-  UserCheck
+  UserCheck,
+  Hash
 } from 'lucide-react';
+import { RegistrationSimulator } from './RegistrationSimulator';
 
-export const EnrollmentManager: React.FC = () => {
+interface EnrollmentManagerProps {
+  onNavigateToCatalog?: () => void;
+}
+
+export const EnrollmentManager: React.FC<EnrollmentManagerProps> = ({
+  onNavigateToCatalog
+}) => {
   const { currentUser, canManageCourse, isAdministrator } = useAuth();
   const { t, language } = useTranslation();
+
+  const [activeSubTab, setActiveSubTab] = useState<'learners' | 'simulator'>('learners');
 
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
@@ -200,37 +210,88 @@ export const EnrollmentManager: React.FC = () => {
           >
             {availableCourses.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.title} ({c.level})
+                {c.title} ({c.level}) — Code {c.courseCode}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* Selected Course Overview Bar */}
-      {selectedCourse && (
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
-                {selectedCategory?.name || 'Federation'}
-              </span>
-              <span className="font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
-                {selectedCourse.level}
-              </span>
-              <span className="font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
-                Access: Private (Enrollment Required)
-              </span>
-            </div>
-            <h2 className="text-lg font-bold text-slate-900">
-              {selectedCourse.title}
-            </h2>
-            <div className="text-xs text-slate-500">
-              Responsible Author: <span className="font-medium text-slate-700">{selectedCourse.authors.join(', ')}</span>
-            </div>
-          </div>
+      {/* Sub-Navigation: Enrolled Learners vs. External Registration Simulator */}
+      <div className="flex items-center space-x-2 border-b border-slate-200 bg-white px-3 py-1.5 rounded-xl shadow-2xs">
+        <button
+          onClick={() => setActiveSubTab('learners')}
+          className={`py-2 px-3 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 ${
+            activeSubTab === 'learners'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Users className="w-3.5 h-3.5" />
+          <span>Enrolled Learners & Progress ({enrollments.length})</span>
+        </button>
 
-          <div className="flex items-center gap-4">
+        <button
+          onClick={() => setActiveSubTab('simulator')}
+          className={`py-2 px-3 text-xs font-bold rounded-lg transition-colors flex items-center gap-2 ${
+            activeSubTab === 'simulator'
+              ? 'bg-slate-900 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+        >
+          <Hash className="w-3.5 h-3.5 text-amber-400" />
+          <span>Product Code Matching Simulator</span>
+          <span className="font-mono text-[10px] px-1.5 py-0.2 bg-amber-100 text-amber-800 rounded font-bold">
+            Demo Test
+          </span>
+        </button>
+      </div>
+
+      {/* TAB CONTENT: REGISTRATION SIMULATOR */}
+      {activeSubTab === 'simulator' && (
+        <RegistrationSimulator
+          onNavigateToCatalog={onNavigateToCatalog}
+          onEnrollmentChanged={() => {
+            if (selectedCourseId) {
+              loadCourseEnrollments(selectedCourseId);
+            }
+          }}
+        />
+      )}
+
+      {/* TAB CONTENT: LEARNERS TABLE & PROGRESS */}
+      {activeSubTab === 'learners' && (
+        <>
+          {/* Selected Course Overview Bar */}
+          {selectedCourse && (
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                    {selectedCategory?.name || 'Federation'}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    {selectedCourse.level}
+                  </span>
+                  <span className="font-mono text-[10px] uppercase font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                    Access: Private (Enrollment Required)
+                  </span>
+                  <span 
+                    className="font-mono text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-300"
+                    title="Internal Course Product Code used for registration/payment matching"
+                  >
+                    Product Code: {selectedCourse.courseCode}
+                  </span>
+                </div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {selectedCourse.title}
+                </h2>
+                <div className="text-xs text-slate-500">
+                  Responsible Author: <span className="font-medium text-slate-700">{selectedCourse.authors.join(', ')}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 text-center font-mono">
               <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
                 <div className="text-[10px] text-slate-400 uppercase">Enrolled</div>
@@ -648,6 +709,8 @@ export const EnrollmentManager: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

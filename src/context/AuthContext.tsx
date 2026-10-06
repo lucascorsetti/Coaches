@@ -53,18 +53,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canManageCourse = (course: Course): boolean => {
     if (isAdministrator) return true;
     if (!isCourseAuthor) return false;
-    // Check if author has category assignment
-    if (currentUser.assignedCategoryIds && currentUser.assignedCategoryIds.includes(course.categoryId)) {
-      return true;
-    }
-    // Check if author has explicit course assignment
+
+    // 1. Explicit course assignment by ID
     if (currentUser.assignedCourseIds && currentUser.assignedCourseIds.includes(course.id)) {
       return true;
     }
-    // Check if listed in authors array
-    if (course.authors && course.authors.some((a) => a.includes(currentUser.name) || a.includes('Head of Coaches') && currentUser.assignedCategoryIds?.includes('cat-coaching'))) {
+    // 2. Explicit category assignment by Category ID
+    if (currentUser.assignedCategoryIds && currentUser.assignedCategoryIds.includes(course.categoryId)) {
       return true;
     }
+    // 3. Explicit author assignment by User ID in course.authorUserIds
+    if (course.authorUserIds && course.authorUserIds.includes(currentUser.id)) {
+      return true;
+    }
+
     return false;
   };
 

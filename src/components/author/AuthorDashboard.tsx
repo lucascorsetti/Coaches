@@ -54,6 +54,8 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newShortTitle, setNewShortTitle] = useState('');
+  const [newCourseCode, setNewCourseCode] = useState('');
+  const [courseCodeError, setCourseCodeError] = useState<string | null>(null);
   const [newCategoryId, setNewCategoryId] = useState('');
   const [newLevel, setNewLevel] = useState('Level 1');
   const [newDuration, setNewDuration] = useState('4 hours');
@@ -105,9 +107,24 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
     e.preventDefault();
     if (!newTitle.trim() || !newCategoryId) return;
 
+    const trimmedCode = newCourseCode.trim();
+    if (!trimmedCode) {
+      setCourseCodeError('Course Product Code is required (e.g. 10001, 10002)');
+      return;
+    }
+
+    // Validate course code uniqueness
+    const validation = await courseRepository.validateCourseCode(trimmedCode);
+    if (!validation.valid) {
+      setCourseCodeError(validation.error || 'Course code is already in use');
+      return;
+    }
+
+    setCourseCodeError(null);
     const courseId = `course-${Date.now()}`;
     const newCourse: Course = {
       id: courseId,
+      courseCode: trimmedCode,
       title: newTitle.trim(),
       shortTitle: newShortTitle.trim() || newTitle.trim().slice(0, 8).toUpperCase(),
       categoryId: newCategoryId,
@@ -159,6 +176,8 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
     setShowCreateModal(false);
     setNewTitle('');
     setNewShortTitle('');
+    setNewCourseCode('');
+    setCourseCodeError(null);
     setNewDescription('');
 
     // Open directly in editor
@@ -422,9 +441,17 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
                 {/* Header card banner */}
                 <div className="p-5 border-b border-slate-100 flex-1">
                   <div className="flex items-center justify-between gap-2 mb-3">
-                    <span className="font-mono text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
-                      {categoryName}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="font-mono text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {categoryName}
+                      </span>
+                      <span 
+                        className="font-mono text-[11px] font-semibold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200" 
+                        title="Internal Course Product Code (used for registration & payment matching)"
+                      >
+                        Code: {course.courseCode}
+                      </span>
+                    </div>
                     <StatusBadge status={course.status} />
                   </div>
 
@@ -557,6 +584,41 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
                 />
               </div>
 
+              {/* Course Product Code (Unique Internal Identifier) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Course Product Code (Internal Matching Key) *
+                  </label>
+                  <span className="font-mono text-[10px] text-slate-400">
+                    e.g. 10001, 10002, 20001
+                  </span>
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 10003"
+                  value={newCourseCode}
+                  onChange={(e) => {
+                    setNewCourseCode(e.target.value);
+                    setCourseCodeError(null);
+                  }}
+                  className={`w-full px-3 py-2 text-sm font-mono bg-white border rounded-lg focus:outline-none focus:ring-2 ${
+                    courseCodeError 
+                      ? 'border-rose-400 focus:ring-rose-500 text-rose-900 bg-rose-50/30' 
+                      : 'border-slate-300 focus:ring-blue-500 text-slate-800'
+                  }`}
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Silent internal matching identifier for future external registration/payment systems. Unique across all courses.
+                </p>
+                {courseCodeError && (
+                  <p className="text-xs text-rose-600 font-medium mt-1">
+                    ⚠ {courseCodeError}
+                  </p>
+                )}
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
@@ -633,7 +695,10 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
               <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setCourseCodeError(null);
+                  }}
                   className="px-4 py-2 text-xs font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
                 >
                   Cancel

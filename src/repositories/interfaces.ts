@@ -11,12 +11,15 @@ import {
   Enrollment,
   EnrollmentStatus,
   CourseProgressSummary,
-  User
+  User,
+  CourseRegistration
 } from '../types';
 
 export interface ICourseRepository {
   getAllCourses(): Promise<Course[]>;
   getCourseById(id: string): Promise<Course | null>;
+  getCourseByCode(courseCode: string): Promise<Course | null>;
+  validateCourseCode(courseCode: string, excludeCourseId?: string): Promise<{ valid: boolean; error?: string }>;
   saveCourse(course: Course): Promise<Course>;
   deleteCourse(id: string): Promise<boolean>;
 
@@ -56,8 +59,11 @@ export interface IEnrollmentRepository {
 
 export interface IAssessmentRepository {
   getAssessmentById(id: string): Promise<Assessment | null>;
+  getAssessmentByItem(learningItemId: string): Promise<Assessment | null>;
+  getAssessmentsByCourse(courseId: string): Promise<Assessment[]>;
   saveAssessment(assessment: Assessment): Promise<Assessment>;
-  getAttempts(userId: string, assessmentId: string): Promise<Attempt[]>;
+  deleteAssessment(id: string): Promise<boolean>;
+  getAttempts(userId: string, assessmentId: string, enrollmentId?: string): Promise<Attempt[]>;
   saveAttempt(attempt: Attempt): Promise<Attempt>;
 }
 
@@ -76,4 +82,15 @@ export interface ISubmissionRepository {
 export interface IUserRepository {
   getAllUsers(): Promise<User[]>;
   getUserById(id: string): Promise<User | null>;
+}
+
+export interface IRegistrationService {
+  getAllRegistrations(): Promise<CourseRegistration[]>;
+  createRegistration(reg: Omit<CourseRegistration, 'id' | 'createdAt'>): Promise<CourseRegistration>;
+  processRegistration(registrationId: string): Promise<{ success: boolean; enrollment?: Enrollment; error?: string }>;
+  simulateExternalPurchase(
+    userId: string, 
+    courseCode: string, 
+    source?: string
+  ): Promise<{ success: boolean; enrollment?: Enrollment; error?: string; registration: CourseRegistration }>;
 }
