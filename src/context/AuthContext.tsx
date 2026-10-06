@@ -1,61 +1,87 @@
-import React, { createContext, useContext, useState } from 'react';
-import { User, UserRole } from '../types';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, UserRole, Course } from '../types';
+import { DEMO_USERS } from '../data/demoData';
 
 interface AuthContextType {
   currentUser: User;
+  allUsers: User[];
+  switchUser: (userId: string) => void;
   switchRole: (role: UserRole) => void;
   canManageCourses: boolean;
   canPublishCourses: boolean;
-  canEnroll: boolean;
+  canManageCourse: (course: Course) => boolean;
+  canEnrollLearners: boolean;
+  isAdministrator: boolean;
+  isCourseAuthor: boolean;
+  isLearner: boolean;
 }
-
-const MOCK_USERS: Record<UserRole, User> = {
-  learner: {
-    id: 'user-demo-1',
-    name: 'Andrea Bernard (Coach Trainee)',
-    email: 'andrea.bernard@fisg.it',
-    role: 'learner'
-  },
-  author: {
-    id: 'user-author-1',
-    name: 'Lucas Corsetti (Head of Coaches)',
-    email: 'lucas.corsetti@fisg.it',
-    role: 'author'
-  },
-  admin: {
-    id: 'user-admin-1',
-    name: 'Federation Admin',
-    email: 'admin@fisg.it',
-    role: 'admin'
-  }
-};
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User>(() => {
-    const saved = localStorage.getItem('ihdp_mock_role') as UserRole;
-    return (saved && MOCK_USERS[saved]) ? MOCK_USERS[saved] : MOCK_USERS.author;
+    const savedUserId = localStorage.getItem('ihdp_mock_user_id');
+    const found = DEMO_USERS.find((u) => u.id === savedUserId);
+    // Default to Learner A so we clearly see My Courses experience first, or author if desired
+    return found || DEMO_USERS[3]; // Default to Demo Learner A (Marco Zanetti)
   });
 
-  const switchRole = (role: UserRole) => {
-    const user = MOCK_USERS[role];
-    setCurrentUser(user);
-    localStorage.setItem('ihdp_mock_role', role);
+  const switchUser = (userId: string) => {
+    const user = DEMO_USERS.find((u) => u.id === userId);
+    if (user) {
+      setCurrentUser(user);
+      localStorage.setItem('ihdp_mock_user_id', user.id);
+      localStorage.setItem('ihdp_mock_role', user.role);
+    }
   };
 
-  const canManageCourses = currentUser.role === 'admin' || currentUser.role === 'author';
-  const canPublishCourses = currentUser.role === 'admin' || currentUser.role === 'author';
-  const canEnroll = true;
+  const switchRole = (role: UserRole) => {
+    const user = DEMO_USERS.find((u) => u.role === role);
+    if (user) {
+      switchUser(user.id);
+    }
+  };
+
+  const isAdministrator = currentUser.role === 'admin';
+  const isCourseAuthor = currentUser.role === 'author';
+  const isLearner = currentUser.role === 'learner';
+
+  const canManageCourses = isAdministrator || isCourseAuthor;
+  const canPublishCourses = isAdministrator || isCourseAuthor;
+  const canEnrollLearners = isAdministrator || isCourseAuthor;
+
+  const canManageCourse = (course: Course): boolean => {
+    if (isAdministrator) return true;
+    if (!isCourseAuthor) return false;
+    // Check if author has category assignment
+    if (currentUser.assignedCategoryIds && currentUser.assignedCategoryIds.includes(course.categoryId)) {
+      return true;
+    }
+    // Check if author has explicit course assignment
+    if (currentUser.assignedCourseIds && currentUser.assignedCourseIds.includes(course.id)) {
+      return true;
+    }
+    // Check if listed in authors array
+    if (course.authors && course.authors.some((a) => a.includes(currentUser.name) || a.includes('Head of Coaches') && currentUser.assignedCategoryIds?.includes('cat-coaching'))) {
+      return true;
+    }
+    return false;
+  };
 
   return (
     <AuthContext.Provider
       value={{
         currentUser,
+        allUsers: DEMO_USERS,
+        switchUser,
         switchRole,
         canManageCourses,
         canPublishCourses,
-        canEnroll
+        canManageCourse,
+        canEnrollLearners,
+        isAdministrator,
+        isCourseAuthor,
+        isLearner
       }}
     >
       {children}

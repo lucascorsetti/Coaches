@@ -48,7 +48,7 @@ interface CourseEditorProps {
   onPreview: (courseId: string, lessonId?: string) => void;
 }
 
-type EditorTab = 'info' | 'structure' | 'assessment';
+type EditorTab = 'info' | 'structure' | 'assessment' | 'access';
 
 export const CourseEditor: React.FC<CourseEditorProps> = ({
   courseId,
@@ -475,6 +475,18 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({
         >
           <Award className="w-4 h-4" />
           <span>Assessment & Exam Rules</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('access')}
+          className={`py-3 px-4 text-xs font-bold border-b-2 transition-colors flex items-center gap-2 ${
+            activeTab === 'access'
+              ? 'border-blue-600 text-blue-600'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Lock className="w-4 h-4" />
+          <span>Course Access & Completion</span>
         </button>
       </div>
 
@@ -973,6 +985,127 @@ export const CourseEditor: React.FC<CourseEditorProps> = ({
           ) : (
             <p className="text-xs text-slate-500 italic">No formal assessment linked to this course.</p>
           )}
+        </div>
+      )}
+
+      {/* TAB 4: COURSE ACCESS & COMPLETION RULES */}
+      {activeTab === 'access' && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6 shadow-2xs max-w-4xl">
+          <div className="border-b border-slate-100 pb-4">
+            <h3 className="font-bold text-base text-slate-900 tracking-tight">
+              Course Access & Completion Requirements
+            </h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Configure who is authorized to view this course and the criteria required for certified completion.
+            </p>
+          </div>
+
+          {/* Visibility Policy */}
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
+              Access & Visibility Policy
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="p-4 rounded-xl border-2 border-blue-600 bg-blue-50/50 space-y-1 cursor-pointer">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-blue-900">Private / Enrollment Required</span>
+                  <span className="font-mono text-[10px] bg-blue-600 text-white px-1.5 py-0.2 rounded">Default</span>
+                </div>
+                <p className="text-[11px] text-blue-700 leading-relaxed">
+                  Strictly hidden from public catalog. Learners must be individually approved and enrolled by administrators.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 opacity-60 space-y-1">
+                <div className="font-bold text-xs text-slate-800">Restricted / Cohort Invite</div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Visible only to accredited regional clubs and nominated participants.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50 opacity-60 space-y-1">
+                <div className="font-bold text-xs text-slate-800">Internal Federation Staff</div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  Restricted to technical directors, referee supervisors, and examiners.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Completion Requirements */}
+          <div className="space-y-4 pt-4 border-t border-slate-100">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider font-mono">
+              Certified Completion Criteria
+            </label>
+
+            <div className="space-y-3 bg-slate-50/80 p-4 rounded-xl border border-slate-200 text-xs">
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={course.completionRules?.requireAllLessons ?? true}
+                  onChange={(e) => {
+                    const rules = {
+                      requireAllLessons: e.target.checked,
+                      requireAllAssessmentsPassed: course.completionRules?.requireAllAssessmentsPassed ?? true,
+                      minimumPassingScore: course.completionRules?.minimumPassingScore ?? 75
+                    };
+                    setCourse({ ...course, completionRules: rules });
+                  }}
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <div className="font-semibold text-slate-900">Require all lessons completed</div>
+                  <div className="text-[11px] text-slate-500">
+                    The learner must mark each reading, video, and scenario item as complete.
+                  </div>
+                </div>
+              </label>
+
+              <label className="flex items-start gap-2.5 cursor-pointer pt-2 border-t border-slate-200/60">
+                <input
+                  type="checkbox"
+                  checked={course.completionRules?.requireAllAssessmentsPassed ?? true}
+                  onChange={(e) => {
+                    const rules = {
+                      requireAllLessons: course.completionRules?.requireAllLessons ?? true,
+                      requireAllAssessmentsPassed: e.target.checked,
+                      minimumPassingScore: course.completionRules?.minimumPassingScore ?? 75
+                    };
+                    setCourse({ ...course, completionRules: rules });
+                  }}
+                  className="mt-0.5 rounded text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <div className="font-semibold text-slate-900">Require all graded assessments passed</div>
+                  <div className="text-[11px] text-slate-500">
+                    Knowledge evaluation quizzes must meet the passing threshold.
+                  </div>
+                </div>
+              </label>
+
+              <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                <div>
+                  <div className="font-semibold text-slate-900">Minimum overall passing score (%)</div>
+                  <div className="text-[11px] text-slate-500">Score percentage required across all assessments</div>
+                </div>
+                <input
+                  type="number"
+                  min="50"
+                  max="100"
+                  value={course.completionRules?.minimumPassingScore ?? 75}
+                  onChange={(e) => {
+                    const rules = {
+                      requireAllLessons: course.completionRules?.requireAllLessons ?? true,
+                      requireAllAssessmentsPassed: course.completionRules?.requireAllAssessmentsPassed ?? true,
+                      minimumPassingScore: parseInt(e.target.value) || 75
+                    };
+                    setCourse({ ...course, completionRules: rules });
+                  }}
+                  className="w-20 px-2 py-1 text-center font-mono font-bold bg-white border border-slate-300 rounded-lg text-slate-800"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

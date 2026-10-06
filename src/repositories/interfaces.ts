@@ -7,7 +7,11 @@ import {
   Assessment, 
   Attempt, 
   Progress, 
-  Submission 
+  Submission,
+  Enrollment,
+  EnrollmentStatus,
+  CourseProgressSummary,
+  User
 } from '../types';
 
 export interface ICourseRepository {
@@ -39,6 +43,17 @@ export interface ICategoryRepository {
   saveCategory(category: Category): Promise<Category>;
 }
 
+export interface IEnrollmentRepository {
+  getEnrollmentsByUser(userId: string): Promise<Enrollment[]>;
+  getEnrollment(userId: string, courseId: string): Promise<Enrollment | null>;
+  getEnrollmentsByCourse(courseId: string): Promise<Enrollment[]>;
+  getAllEnrollments(): Promise<Enrollment[]>;
+  createEnrollment(enrollment: Omit<Enrollment, 'id' | 'enrolledAt'> & Partial<Pick<Enrollment, 'id' | 'enrolledAt'>>): Promise<Enrollment>;
+  updateEnrollmentStatus(id: string, status: EnrollmentStatus): Promise<Enrollment>;
+  deleteEnrollment(id: string): Promise<boolean>;
+  checkUserAccess(userId: string, courseId: string): Promise<boolean>;
+}
+
 export interface IAssessmentRepository {
   getAssessmentById(id: string): Promise<Assessment | null>;
   saveAssessment(assessment: Assessment): Promise<Assessment>;
@@ -47,12 +62,18 @@ export interface IAssessmentRepository {
 }
 
 export interface IProgressRepository {
-  getUserProgress(userId: string, courseId: string): Promise<Progress[]>;
+  getUserProgress(userId: string, courseId: string, enrollmentId?: string): Promise<Progress[]>;
   setItemProgress(progress: Progress): Promise<Progress>;
   resetCourseProgress(userId: string, courseId: string): Promise<void>;
+  getCourseSummary(userId: string, courseId: string): Promise<CourseProgressSummary | null>;
 }
 
 export interface ISubmissionRepository {
   getSubmissions(userId: string, activityId: string): Promise<Submission[]>;
   saveSubmission(submission: Submission): Promise<Submission>;
+}
+
+export interface IUserRepository {
+  getAllUsers(): Promise<User[]>;
+  getUserById(id: string): Promise<User | null>;
 }

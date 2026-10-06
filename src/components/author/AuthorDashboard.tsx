@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Course, Category, CourseStatus } from '../../types';
-import { courseRepository, categoryRepository } from '../../repositories';
+import { courseRepository, categoryRepository, enrollmentRepository } from '../../repositories';
+import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n/translations';
 import { StatusBadge } from '../common/StatusBadge';
 import { 
@@ -21,24 +22,29 @@ import {
   Upload,
   Globe,
   Archive,
-  GraduationCap
+  GraduationCap,
+  Users
 } from 'lucide-react';
 
 interface AuthorDashboardProps {
   onEditCourse: (courseId: string) => void;
   onPreviewCourse: (courseId: string) => void;
+  onManageEnrollments?: (courseId: string) => void;
 }
 
 export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
   onEditCourse,
-  onPreviewCourse
+  onPreviewCourse,
+  onManageEnrollments
 }) => {
+  const { currentUser, canManageCourse, isAdministrator } = useAuth();
   const { t, language } = useTranslation();
 
   const [courses, setCourses] = useState<Course[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [modulesCountMap, setModulesCountMap] = useState<Record<string, number>>({});
   const [lessonsCountMap, setLessonsCountMap] = useState<Record<string, number>>({});
+  const [enrolledCountMap, setEnrolledCountMap] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -60,7 +66,8 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
       categoryRepository.getAllCategories()
     ]);
 
-    setCourses(allCourses);
+    const manageableCourses = allCourses.filter((c) => canManageCourse(c));
+    setCourses(manageableCourses);
     setCategories(allCategories);
     if (allCategories.length > 0 && !newCategoryId) {
       setNewCategoryId(allCategories[0].id);
@@ -69,9 +76,14 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
     // Counts
     const mCounts: Record<string, number> = {};
     const lCounts: Record<string, number> = {};
-    for (const c of allCourses) {
-      const mods = await courseRepository.getModulesByCourseId(c.id);
+    const eCounts: Record<string, number> = {};
+    for (const c of manageableCourses) {
+      const [mods, enrs] = await Promise.all([
+        courseRepository.getModulesByCourseId(c.id),
+        enrollmentRepository.getEnrollmentsByCourse(c.id)
+      ]);
       mCounts[c.id] = mods.length;
+      eCounts[c.id] = enrs.length;
       let totalLessons = 0;
       for (const m of mods) {
         const items = await courseRepository.getItemsByModuleId(m.id);
@@ -81,12 +93,13 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
     }
     setModulesCountMap(mCounts);
     setLessonsCountMap(lCounts);
+    setEnrolledCountMap(eCounts);
     setIsLoading(false);
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentUser.id]);
 
   const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -432,7 +445,7 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
                     {course.description}
                   </p>
 
-                  <div className="grid grid-cols-3 gap-2 mt-4 pt-3 border-t border-slate-100 text-center font-mono">
+                  <div className="grid grid-cols-4 gap-2 mt-4 pt-3 border-t border-slate-100 text-center font-mono">
                     <div className="bg-slate-50 p-2 rounded">
                       <div className="text-[10px] text-slate-400 uppercase">Level</div>
                       <div className="text-xs font-semibold text-slate-700 mt-0.5 truncate">{course.level}</div>
@@ -445,12 +458,25 @@ export const AuthorDashboard: React.FC<AuthorDashboardProps> = ({
                       <div className="text-[10px] text-slate-400 uppercase">Lessons</div>
                       <div className="text-xs font-semibold text-slate-700 mt-0.5">{lessonCount}</div>
                     </div>
+                    <div className="bg-indigo-50/70 p-2 rounded border border-indigo-100/50">
+                      <div className="text-[10px] text-indigo-500 uppercase">Enrolled</div>
+                      <div className="text-xs font-bold text-indigo-700 mt-0.5">{enrolledCountMap[course.id] || 0}</div>
+                    </div>
                   </div>
                 </div>
 
                 {/* Footer Actions */}
                 <div className="bg-slate-50 px-4 py-3 border-t border-slate-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
+                    {onManageEnrollments && (
+                      <button
+                        onClick={() => onManageEnrollments(course.id)}
+                        title="Manage Enrolled Learners"
+                        className="p-1.5 text-slate-600 hover:text-indigo-600 hover:bg-white rounded border border-transparent hover:border-slate-200 transition-colors"
+                      >
+                        <Users className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
                       onClick={() => onPreviewCourse(course.id)}
                       title="Preview course as learner"

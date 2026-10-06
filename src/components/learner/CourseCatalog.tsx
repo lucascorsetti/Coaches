@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Course, Category, Progress } from '../../types';
-import { courseRepository, categoryRepository, progressRepository } from '../../repositories';
+import { Course, Category, Enrollment, CourseProgressSummary } from '../../types';
+import { 
+  courseRepository, 
+  categoryRepository, 
+  enrollmentRepository, 
+  progressRepository 
+} from '../../repositories';
 import { useAuth } from '../../context/AuthContext';
 import { useTranslation } from '../../i18n/translations';
-import { StatusBadge } from '../common/StatusBadge';
 import { ProgressBar } from '../common/ProgressBar';
 import { 
-  Search, 
   Clock, 
   BookOpen, 
-  Layers, 
   ArrowRight, 
-  Award,
-  Filter,
-  CheckCircle2,
-  Play
+  Award, 
+  CheckCircle2, 
+  Lock,
+  ShieldAlert,
+  Play,
+  RotateCcw,
+  Sparkles,
+  Layers,
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 
 interface CourseCatalogProps {
@@ -22,229 +30,278 @@ interface CourseCatalogProps {
 }
 
 export const CourseCatalog: React.FC<CourseCatalogProps> = ({ onSelectCourse }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, isAdministrator, isCourseAuthor } = useAuth();
   const { t, language } = useTranslation();
 
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [summaries, setSummaries] = useState<Record<string, CourseProgressSummary>>({});
   const [categories, setCategories] = useState<Category[]>([]);
-  const [progressList, setProgressList] = useState<Record<string, Progress[]>>({});
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLevel, setSelectedLevel] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
-      setIsLoading(true);
-      const [allCourses, allCategories] = await Promise.all([
-        courseRepository.getAllCourses(),
-        categoryRepository.getAllCategories()
-      ]);
+  // Admin override to inspect all courses if needed
+  const [adminViewAll, setAdminViewAll] = useState(false);
+  const [allSystemCourses, setAllSystemCourses] = useState<Course[]>([]);
 
-      // Only published courses for learners (or all courses for authors/admins)
-      const visibleCourses = currentUser.role === 'learner' 
-        ? allCourses.filter((c) => c.status === 'published')
-        : allCourses;
+  const loadData = async () => {
+    setIsLoading(true);
+    const [allCats, userEnrollments, allCourses] = await Promise.all([
+      categoryRepository.getAllCategories(),
+      enrollmentRepository.getEnrollmentsByUser(currentUser.id),
+      courseRepository.getAllCourses()
+    ]);
 
-      setCourses(visibleCourses);
-      setCategories(allCategories);
+    setCategories(allCats);
+    setEnrollments(userEnrollments);
+    setAllSystemCourses(allCourses);
 
-      // Load progress for each course
-      const progMap: Record<string, Progress[]> = {};
-      for (const c of visibleCourses) {
-        const p = await progressRepository.getUserProgress(currentUser.id, c.id);
-        progMap[c.id] = p;
+    // Filter to ONLY courses this user has access to
+    const accessibleCourseIds = new Set(
+      userEnrollments
+        .filter((e) => e.status === 'active' || e.status === 'completed')
+        .map((e) => e.courseId)
+    );
+
+    const activeCourses = allCourses.filter((c) => accessibleCourseIds.has(c.id));
+    setEnrolledCourses(activeCourses);
+
+    // Calculate progress summary for each accessible course
+    const summaryMap: Record<string, CourseProgressSummary> = {};
+    for (const c of activeCourses) {
+      const summary = await progressRepository.getCourseSummary(currentUser.id, c.id);
+      if (summary) {
+        summaryMap[c.id] = summary;
       }
-      setProgressList(progMap);
-      setIsLoading(false);
     }
+    setSummaries(summaryMap);
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
     loadData();
-  }, [currentUser.id, currentUser.role]);
+  }, [currentUser.id]);
 
-  // Unique levels
-  const levels = ['all', ...Array.from(new Set(courses.map((c) => c.level)))];
-
-  // Filtering
-  const filteredCourses = courses.filter((c) => {
-    const matchesCat = selectedCategory === 'all' || c.categoryId === selectedCategory;
-    const matchesLevel = selectedLevel === 'all' || c.level === selectedLevel;
-    const matchesSearch = 
-      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.level.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesLevel && matchesSearch;
-  });
+  const displayedCourses = adminViewAll ? allSystemCourses : enrolledCourses;
 
   return (
-    <div className="space-y-6">
-      {/* Hero Welcome Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-2xs">
-        <div className="max-w-3xl space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs uppercase px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold border border-blue-200">
-              FISG Academy
-            </span>
-            <span className="text-xs text-slate-400 font-mono">
-              Federation Course Engine
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-200">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              {t('navMyLearning')}
+            </h1>
+            <span className="font-mono text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+              Private Education Portal
             </span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-            Accreditation & Coaching Pathways
-          </h1>
-          <p className="text-sm text-slate-600 leading-relaxed">
-            Federation education curriculum across coaching, refereeing, and athletic preparation. Select a course to review syllabus, study lessons, and complete evaluation tests.
+          <p className="text-sm text-slate-600 mt-1">
+            Access to federation education courses is granted upon enrollment confirmation.
           </p>
         </div>
 
-        {/* Category Filter Pills */}
-        <div className="flex items-center gap-2 mt-6 overflow-x-auto pb-1">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-              selectedCategory === 'all'
-                ? 'bg-blue-600 text-white shadow-2xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            {t('allCategories')}
-          </button>
-          {categories.map((cat) => (
+        {/* Admin/Author shortcut to toggle view or view all courses */}
+        {(isAdministrator || isCourseAuthor) && (
+          <div className="flex items-center gap-2">
             <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                selectedCategory === cat.id
-                  ? 'bg-blue-600 text-white shadow-2xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
+              onClick={() => setAdminViewAll(!adminViewAll)}
+              className="px-3 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1.5"
             >
-              {language === 'it' && cat.nameIt ? cat.nameIt : cat.name}
+              <span>{adminViewAll ? 'Switch to My Assigned Courses' : 'Admin: View All Courses'}</span>
             </button>
-          ))}
+          </div>
+        )}
+      </div>
+
+      {/* User Persona Context Banner */}
+      <div className="my-6 p-4 bg-white rounded-xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 font-bold text-sm">
+            {currentUser.name.charAt(0)}
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-sm text-slate-900">{currentUser.name}</span>
+              <span className="font-mono text-[10px] px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 uppercase border border-slate-200">
+                {currentUser.role}
+              </span>
+            </div>
+            <div className="text-xs text-slate-500 font-mono">
+              {currentUser.email} • {enrolledCourses.length} active enrollment(s)
+            </div>
+          </div>
+        </div>
+
+        <div className="text-xs text-slate-500 font-medium bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+          Access Mode: <span className="text-slate-800 font-semibold">Strict Enrollment Only</span>
         </div>
       </div>
 
-      {/* Search & Level Filter Bar */}
-      <div className="bg-white p-3.5 rounded-xl border border-slate-200 flex flex-wrap items-center justify-between gap-3 shadow-2xs">
-        <div className="relative flex-1 min-w-[240px]">
-          <input
-            type="text"
-            placeholder={t('searchCoursesPlaceholder')}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:bg-white"
-          />
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+      {/* Main Content Area */}
+      {isLoading ? (
+        <div className="p-12 text-center text-slate-500 font-medium">
+          Loading assigned courses...
         </div>
+      ) : displayedCourses.length === 0 ? (
+        /* ZERO ENROLLMENTS EMPTY STATE (e.g. Learner C) */
+        <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center max-w-2xl mx-auto shadow-xs my-8">
+          <div className="w-16 h-16 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center mx-auto mb-4 text-slate-400">
+            <Lock className="w-8 h-8 text-slate-400" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+            No courses assigned yet.
+          </h2>
+          <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+            You are not currently enrolled in any courses in the FISG Italia Hockey Development Program.
+            Course enrollment is managed privately by federation administrators and heads of coaching.
+          </p>
 
-        <div className="flex items-center gap-2 text-xs">
-          <span className="text-slate-400 text-[11px] font-mono">Level:</span>
-          <select
-            value={selectedLevel}
-            onChange={(e) => setSelectedLevel(e.target.value)}
-            className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 text-xs focus:outline-none focus:border-blue-500"
-          >
-            {levels.map((lvl) => (
-              <option key={lvl} value={lvl}>
-                {lvl === 'all' ? t('allLevels') : lvl}
-              </option>
-            ))}
-          </select>
+          <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-600 text-left space-y-1.5">
+            <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-amber-500" />
+              <span>How do I get course access?</span>
+            </div>
+            <p>
+              1. Register for an official FISG coach or referee clinic.
+            </p>
+            <p>
+              2. Your federation course administrator will approve your enrollment.
+            </p>
+            <p>
+              3. Upon authorization, your course will appear immediately on this page.
+            </p>
+          </div>
+
+          <div className="mt-6 text-xs text-slate-400 font-mono">
+            Contact: <span className="text-slate-600">corsi@fisg.it</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        /* ENROLLED COURSES GRID */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {displayedCourses.map((course) => {
+            const category = categories.find((c) => c.id === course.categoryId);
+            const categoryName = category
+              ? (language === 'it' && category.nameIt ? category.nameIt : category.name)
+              : 'Federation';
+            const summary = summaries[course.id];
+            const enrollment = enrollments.find((e) => e.courseId === course.id);
 
-      {/* Course Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filteredCourses.map((course) => {
-          const category = categories.find((cat) => cat.id === course.categoryId);
-          const progress = progressList[course.id] || [];
-          const completedCount = progress.filter((p) => p.status === 'completed').length;
-          // Approximate completion percentage
-          const percent = completedCount > 0 ? Math.min(100, Math.round((completedCount / 4) * 100)) : 0;
+            const percentage = summary?.percentage || 0;
+            const isCompleted = summary?.status === 'completed' || enrollment?.status === 'completed';
 
-          return (
-            <div
-              key={course.id}
-              onClick={() => onSelectCourse(course.id)}
-              className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200 cursor-pointer flex flex-col justify-between group"
-            >
-              <div>
-                {/* Course Thumbnail */}
-                <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
-                  <img
-                    src={course.thumbnail}
-                    alt={course.title}
-                    className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1580748141549-71748dbe0bdc?auto=format&fit=crop&w=800&q=80';
-                    }}
-                  />
-                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded bg-slate-900/80 backdrop-blur-xs text-white text-[10px] font-mono font-bold uppercase tracking-wider">
-                      {course.level}
-                    </span>
-                  </div>
-                  <div className="absolute top-2.5 right-2.5">
-                    <StatusBadge status={course.status} size="sm" />
-                  </div>
-                </div>
+            return (
+              <div
+                key={course.id}
+                className="bg-white rounded-xl border border-slate-200 shadow-xs hover:border-slate-300 hover:shadow-sm transition-all flex flex-col overflow-hidden group"
+              >
+                {/* Course Image & Banner */}
+                {course.thumbnail && (
+                  <div className="h-40 w-full overflow-hidden bg-slate-100 relative">
+                    <img
+                      src={course.thumbnail}
+                      alt={course.title}
+                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-300"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent" />
+                    
+                    <div className="absolute top-3 left-3">
+                      <span className="font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-900/80 text-white backdrop-blur-xs border border-white/20">
+                        {categoryName}
+                      </span>
+                    </div>
 
-                {/* Card Body */}
-                <div className="p-4 sm:p-5 space-y-2.5">
-                  <div className="flex items-center gap-2 text-[11px] text-slate-400 font-mono">
-                    <span>{category ? (language === 'it' && category.nameIt ? category.nameIt : category.name) : 'General'}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {course.estimatedDuration}
-                    </span>
-                  </div>
+                    <div className="absolute top-3 right-3">
+                      {isCompleted ? (
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-emerald-600 text-white shadow-xs">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{t('courseCompleted')}</span>
+                        </span>
+                      ) : (
+                        <span className="font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-blue-600 text-white shadow-xs">
+                          Active
+                        </span>
+                      )}
+                    </div>
 
-                  <h3 className="font-bold text-slate-900 text-base leading-snug group-hover:text-blue-600 transition-colors">
-                    {course.title}
-                  </h3>
-
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                    {course.description}
-                  </p>
-                </div>
-              </div>
-
-              {/* Card Footer: Progress & Action */}
-              <div className="p-4 sm:p-5 pt-0 border-t border-slate-100 mt-2 space-y-3">
-                {percent > 0 ? (
-                  <ProgressBar
-                    percentage={percent}
-                    label="Progress"
-                    size="sm"
-                    showPercentText={true}
-                  />
-                ) : (
-                  <div className="text-[11px] font-mono text-slate-400 flex items-center gap-1">
-                    <BookOpen className="w-3.5 h-3.5 text-slate-400" />
-                    <span>Not enrolled yet</span>
+                    <div className="absolute bottom-3 left-3 right-3">
+                      <div className="text-white text-xs font-semibold drop-shadow-xs line-clamp-1">
+                        {course.level}
+                      </div>
+                    </div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-1">
-                  <span className="text-[11px] text-slate-500 font-medium">
-                    {course.authors[0] || 'FISG Committee'}
+                {/* Card Content */}
+                <div className="p-5 flex-1 flex flex-col">
+                  {!course.thumbnail && (
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+                        {categoryName}
+                      </span>
+                      {isCompleted && (
+                        <span className="inline-flex items-center gap-1 font-mono text-[10px] font-semibold uppercase px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          <CheckCircle2 className="w-3 h-3" />
+                          <span>{t('courseCompleted')}</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  <h3 className="font-bold text-slate-900 text-base leading-snug line-clamp-2">
+                    {course.title}
+                  </h3>
+
+                  <p className="text-xs text-slate-600 mt-2 line-clamp-2 leading-relaxed flex-1">
+                    {course.description}
+                  </p>
+
+                  {/* Progress Gauge */}
+                  <div className="mt-4 pt-3 border-t border-slate-100">
+                    <div className="flex items-center justify-between text-xs mb-1.5">
+                      <span className="font-medium text-slate-600">
+                        {isCompleted ? t('courseCompleted') : `${percentage}% ${t('completionRate')}`}
+                      </span>
+                      <span className="font-mono text-xs font-semibold text-slate-900">
+                        {summary ? `${summary.completedLessons} / ${summary.totalLessons} lessons` : ''}
+                      </span>
+                    </div>
+                    <ProgressBar percentage={percentage} height="h-2" />
+                  </div>
+
+                  {/* Meta stats */}
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono mt-3 pt-2 border-t border-slate-100">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      <span>{course.estimatedDuration}</span>
+                    </span>
+                    {enrollment?.enrolledAt && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-slate-400" />
+                        <span>Enrolled {enrollment.enrolledAt.split('T')[0]}</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card Action Footer */}
+                <div className="bg-slate-50 px-5 py-3 border-t border-slate-100 flex items-center justify-between">
+                  <span className="text-xs font-medium text-slate-600">
+                    {isCompleted ? 'Review Syllabus & Materials' : percentage > 0 ? 'Continue where you left off' : 'Start Course'}
                   </span>
-                  <span className="text-xs font-bold text-blue-600 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
-                    <span>{percent > 0 ? t('continueCourse') : t('startCourse')}</span>
+                  
+                  <button
+                    onClick={() => onSelectCourse(course.id)}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-xs transition-colors"
+                  >
+                    <span>{isCompleted ? 'Review' : percentage > 0 ? t('continueCourse') : t('startCourse')}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
+                  </button>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {filteredCourses.length === 0 && (
-        <div className="p-12 text-center bg-white rounded-2xl border border-slate-200 space-y-3">
-          <Layers className="w-8 h-8 text-slate-400 mx-auto" />
-          <p className="text-sm text-slate-600 font-medium">{t('noCoursesFound')}</p>
+            );
+          })}
         </div>
       )}
     </div>

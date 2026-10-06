@@ -220,13 +220,30 @@ CREATE TABLE IF NOT EXISTS courses (
   thumbnail_url TEXT,
   estimated_duration TEXT,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+  access_policy TEXT NOT NULL DEFAULT 'private' CHECK (access_policy IN ('private', 'restricted', 'open')),
+  completion_rules JSONB DEFAULT '{"requireAllLessons": true, "requireAllAssessmentsPassed": true, "minimumPassingScore": 75}'::jsonb,
   authors TEXT[] DEFAULT ARRAY[]::TEXT[],
   published_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Course Modules
+-- 3. Course Enrollments (Private Authorization Grant)
+CREATE TABLE IF NOT EXISTS course_enrollments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'suspended', 'expired')),
+  enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+  start_date DATE DEFAULT CURRENT_DATE,
+  completion_date TIMESTAMPTZ,
+  assigned_by TEXT NOT NULL,
+  expiration_date TIMESTAMPTZ,
+  notes TEXT,
+  UNIQUE(user_id, course_id)
+);
+
+-- 4. Course Modules
 CREATE TABLE IF NOT EXISTS course_modules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID REFERENCES courses(id) ON DELETE CASCADE,

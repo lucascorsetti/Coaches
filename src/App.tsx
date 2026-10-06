@@ -7,12 +7,13 @@ import { CourseOverview } from './components/learner/CourseOverview';
 import { LessonPlayer } from './components/learner/LessonPlayer';
 import { AuthorDashboard } from './components/author/AuthorDashboard';
 import { CourseEditor } from './components/author/CourseEditor';
+import { EnrollmentManager } from './components/author/EnrollmentManager';
 import { EngineDocs } from './components/docs/EngineDocs';
 
 const AppContent: React.FC = () => {
   const { currentUser } = useAuth();
 
-  // Top level active tab: 'catalog' | 'author' | 'docs'
+  // Top level active tab: 'catalog' | 'enrollments' | 'author' | 'docs'
   const [activeView, setActiveView] = useState<ActiveView>('catalog');
 
   // Learner navigation state
@@ -81,7 +82,10 @@ const AppContent: React.FC = () => {
         {/* VIEW 1: DOCS & ARCHITECTURE */}
         {activeView === 'docs' && <EngineDocs />}
 
-        {/* VIEW 2: COURSE CATALOG & LEARNER EXPERIENCE */}
+        {/* VIEW 2: COURSE ENROLLMENTS & LEARNER MANAGEMENT */}
+        {activeView === 'enrollments' && <EnrollmentManager />}
+
+        {/* VIEW 3: MY COURSES & LEARNER EXPERIENCE (STRICT ENROLLMENT ACCESS) */}
         {activeView === 'catalog' && (
           <>
             {/* If in Lesson Player */}
@@ -99,13 +103,13 @@ const AppContent: React.FC = () => {
                 onStartLesson={handleStartLesson}
               />
             ) : (
-              /* Course Catalog */
+              /* My Courses Learner Dashboard */
               <CourseCatalog onSelectCourse={handleSelectCourse} />
             )}
           </>
         )}
 
-        {/* VIEW 3: COURSE AUTHORING (HEAD OF COACHES) */}
+        {/* VIEW 4: COURSE AUTHORING (HEAD OF COACHES / REFEREES) */}
         {activeView === 'author' && (
           <>
             {/* If author launched learner preview */}
@@ -136,17 +140,18 @@ const AppContent: React.FC = () => {
                 </div>
               </div>
             ) : editingCourseId ? (
-              /* Course Editor (Modules, Lessons, Content Blocks, Assessment) */
+              /* Course Editor (Modules, Lessons, Content Blocks, Assessment, Access) */
               <CourseEditor
                 courseId={editingCourseId}
                 onBack={handleBackToAuthorDashboard}
                 onPreview={handleAuthorPreview}
               />
             ) : (
-              /* Author Dashboard (All courses, stats, create course modal) */
+              /* Author Dashboard (Assigned courses, stats, create course modal) */
               <AuthorDashboard
                 onEditCourse={handleEditCourse}
                 onPreviewCourse={(cId) => handleAuthorPreview(cId)}
+                onManageEnrollments={(cId) => handleNavigate('enrollments')}
               />
             )}
           </>

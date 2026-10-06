@@ -1,137 +1,216 @@
-export type SportType = 'hockey' | 'soccer' | 'basketball' | 'skating';
+// IHDP Courses Engine - Complete Domain Types & Access Control Models
 
-export type PlayerPosition = 
-  | 'Forward' | 'Defenseman' | 'Goaltender' | 'Center' | 'Winger' // Hockey
-  | 'Striker' | 'Midfielder' | 'Defender' | 'Goalkeeper' // Soccer
-  | 'Point Guard' | 'Shooting Guard' | 'Small Forward' | 'Power Forward' // Basketball
-  | 'Short Track' | 'Speed Skater' | 'Figure Skater'; // Skating
+export type UserRole = 'admin' | 'author' | 'learner';
 
-export type HealthStatus = 'fit' | 'recovering' | 'injured' | 'rested';
-
-export interface Athlete {
+export interface User {
   id: string;
   name: string;
-  number: number;
-  position: PlayerPosition;
-  secondaryPosition?: string;
-  avatarUrl?: string;
-  age: number;
-  heightCm: number;
-  weightKg: number;
-  dominantSide: 'Left' | 'Right' | 'Ambidextrous';
-  healthStatus: HealthStatus;
-  readinessScore: number; // 0 - 100
-  attendanceRate: number; // 0 - 100%
-  lineUnit: 'Line 1' | 'Line 2' | 'Line 3' | 'Line 4' | 'Reserves';
-  metrics: {
-    vo2max?: number;
-    maxSpeedKmh?: number;
-    heartRateRest?: number;
-    heartRateMax?: number;
-    verticalJumpCm?: number;
-    acwr?: number; // Acute:Chronic Workload Ratio
-  };
-  notes: string;
-  stats: {
-    gamesPlayed: number;
-    goals: number;
-    assists: number;
-    penaltiesMinutes?: number;
-    savesPercentage?: number;
-    plusMinus?: number;
-  };
+  email: string;
+  role: UserRole;
+  avatar?: string;
+  // Category & course permissions for Authors
+  assignedCategoryIds?: string[]; // e.g. ['cat-coaching']
+  assignedCourseIds?: string[];   // e.g. ['course-demo-101']
 }
 
-export interface BoardToken {
+export type CourseStatus = 'draft' | 'published' | 'archived';
+export type CourseAccessPolicy = 'private' | 'restricted' | 'open';
+
+export interface CourseCompletionRules {
+  requireAllLessons: boolean;
+  requireAllAssessmentsPassed: boolean;
+  minimumPassingScore?: number;
+}
+
+export interface Category {
   id: string;
-  x: number; // percentage 0-100
-  y: number; // percentage 0-100
-  type: 'player-offense' | 'player-defense' | 'goalie' | 'ball-puck' | 'cone';
-  label: string;
+  slug: string;
+  name: string;
+  nameIt?: string;
+  description: string;
+  order: number;
+  icon?: string;
   color?: string;
 }
 
-export interface BoardDrawing {
-  id: string;
-  type: 'pass' | 'skate' | 'arrow' | 'line' | 'zone';
-  points: { x: number; y: number }[];
-  color: string;
-  dashed?: boolean;
-}
-
-export interface TacticalDrill {
+export interface Course {
   id: string;
   title: string;
-  category: 'Warmup' | 'Tactical' | 'Skill & Skating' | 'Conditioning' | 'Power Play / Set Piece' | 'Defense / Trap';
-  sport: SportType;
-  durationMinutes: number;
-  intensity: 'Low' | 'Medium' | 'High' | 'Extreme';
+  shortTitle?: string;
+  categoryId: string;
+  level: string; // e.g. 'Maestro di Base', 'Level 1', 'Beginner'
   description: string;
-  keyCoachingPoints: string[];
-  tokens: BoardToken[];
-  drawings: BoardDrawing[];
+  thumbnail?: string;
+  estimatedDuration: string;
+  status: CourseStatus;
+  accessPolicy?: CourseAccessPolicy; // default 'private' (enrollment required)
+  completionRules?: CourseCompletionRules;
+  authors: string[];
   createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
 }
 
-export interface TrainingExercise {
+export interface ModuleCompletionRules {
+  required: boolean;
+  minimumScore?: number;
+}
+
+export interface Module {
   id: string;
-  drillId?: string;
+  courseId: string;
   title: string;
-  durationMinutes: number;
-  focus: string;
-  intensity: 'Low' | 'Medium' | 'High' | 'Extreme';
+  description?: string;
+  order: number;
+  completionRules?: ModuleCompletionRules;
+}
+
+export type LearningItemType = 'lesson' | 'video' | 'reading' | 'assessment' | 'assignment';
+
+export interface LearningItem {
+  id: string;
+  moduleId: string;
+  title: string;
+  description?: string;
+  type: LearningItemType;
+  order: number;
+  estimatedDuration?: string;
+  completionRules?: {
+    required: boolean;
+  };
+}
+
+export type ContentBlockType = 
+  | 'heading'
+  | 'text'
+  | 'image'
+  | 'video'
+  | 'document'
+  | 'callout'
+  | 'question'
+  | 'scenario'
+  | 'assessment'
+  | 'assignment';
+
+export interface ContentBlock {
+  id: string;
+  learningItemId: string;
+  type: ContentBlockType;
+  order: number;
+  data: Record<string, any>;
+}
+
+export type QuestionType = 'multiple-choice' | 'multiple-select' | 'true-false' | 'ordering' | 'scenario';
+
+export interface QuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface Question {
+  id: string;
+  type: QuestionType;
+  question: string;
+  options: QuestionOption[];
+  correctAnswers: string[];
+  explanation?: string;
+  points: number;
+  order: number;
+}
+
+export interface Assessment {
+  id: string;
+  courseId?: string;
+  moduleId?: string;
+  title: string;
+  description?: string;
+  passingScore: number;
+  maxAttempts: number;
+  revealAnswers: boolean;
+  questions: Question[];
+}
+
+export interface Attempt {
+  id: string;
+  userId: string;
+  enrollmentId?: string;
+  assessmentId: string;
+  score: number;
+  passed: boolean;
+  attemptNumber: number;
+  answers: Record<string, any>;
+  submittedAt: string;
+}
+
+// ENROLLMENT DOMAIN MODEL (Private Education System)
+export type EnrollmentStatus = 'active' | 'completed' | 'suspended' | 'expired';
+
+export interface Enrollment {
+  id: string;
+  userId: string;
+  courseId: string;
+  status: EnrollmentStatus;
+  enrolledAt: string;
+  startDate?: string;
+  completionDate?: string;
+  assignedBy: string;
+  expirationDate?: string;
   notes?: string;
 }
 
-export interface TrainingSession {
+// LEARNER PROGRESS (Conceptually bound to Enrollment)
+export interface Progress {
   id: string;
-  title: string;
-  sport: SportType;
-  date: string;
-  time: string;
-  location: string;
-  totalDurationMinutes: number;
-  targetRpe: number; // 1-10
-  exercises: TrainingExercise[];
-  attendeeIds: string[];
-  status: 'upcoming' | 'in-progress' | 'completed';
-  notes?: string;
+  enrollmentId?: string;
+  userId: string;
+  courseId: string;
+  moduleId: string;
+  learningItemId: string;
+  completed: boolean;
+  score?: number;
+  timeSpentSeconds?: number;
+  completedAt?: string;
+  lastActivityAt?: string;
 }
 
-export interface MatchEvent {
-  id: string;
-  minute: number;
-  type: 'goal' | 'assist' | 'penalty' | 'shot' | 'save' | 'timeout' | 'substitution';
-  team: 'home' | 'away';
-  athleteId?: string;
-  description: string;
+export interface ModuleProgressSummary {
+  moduleId: string;
+  moduleTitle: string;
+  totalItems: number;
+  completedItems: number;
+  percentage: number;
+  isCompleted: boolean;
+  isLocked: boolean;
 }
 
-export interface Match {
-  id: string;
-  sport: SportType;
-  opponent: string;
-  date: string;
-  time: string;
-  venue: 'Home' | 'Away';
-  location: string;
-  status: 'upcoming' | 'live' | 'finished';
-  scoreHome: number;
-  scoreAway: number;
-  period: string;
-  events: MatchEvent[];
-  lineupAthleteIds: string[];
-  coachNotes?: string;
+export interface AssessmentResultSummary {
+  assessmentId: string;
+  assessmentTitle: string;
+  passed: boolean;
+  bestScore: number;
+  attemptsCount: number;
 }
 
-export interface TeamProfile {
+export interface CourseProgressSummary {
+  enrollment: Enrollment;
+  course: Course;
+  totalLessons: number;
+  completedLessons: number;
+  percentage: number;
+  status: 'not-started' | 'in-progress' | 'completed';
+  lastActivityAt?: string;
+  moduleProgress: ModuleProgressSummary[];
+  assessmentResults: AssessmentResultSummary[];
+}
+
+export interface Submission {
   id: string;
-  name: string;
-  league: string;
-  sport: SportType;
-  season: string;
-  headCoach: string;
-  assistantCoaches: string[];
-  primaryColor: string;
-  secondaryColor: string;
+  enrollmentId?: string;
+  userId: string;
+  activityId: string;
+  response: string;
+  status: 'submitted' | 'reviewed' | 'graded';
+  feedback?: string;
+  grade?: number;
+  submittedAt: string;
 }

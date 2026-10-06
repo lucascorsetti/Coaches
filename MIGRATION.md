@@ -1,6 +1,6 @@
 # IHDP Courses Engine — Migration Guide
 
-This document describes the exact steps to integrate the standalone **Courses Engine** into the main **FISG Italia Hockey Development Program (IHDP)** application.
+This document describes the exact steps to integrate the standalone **Courses Engine** into the main **FISG Italia Hockey Development Program (IHDP)** application with the **Private Enrollment Model**.
 
 ---
 
@@ -8,7 +8,8 @@ This document describes the exact steps to integrate the standalone **Courses En
 
 The standalone project was architected so that:
 - **No rewrites of the UI or builder are required.**
-- **No secondary authentication system is introduced**; learners and coaches use their existing IHDP account.
+- **No secondary authentication system is introduced**; learners and coaches use their existing IHDP account (`auth.users`).
+- **Private enrollment access control** is enforced at the database (RLS) and repository level.
 - **The persistence layer is completely decoupled**: swapping `src/repositories/localStorage` with `src/repositories/supabase` enables immediate cloud persistence.
 
 ---
@@ -17,7 +18,7 @@ The standalone project was architected so that:
 
 ### Step 1: Database Setup in IHDP Supabase
 
-Run the SQL migration script provided below (also viewable in the **Engine Specs** tab in the app):
+Run the SQL migration script provided below:
 
 ```sql
 -- 1. Course Categories (Coaching, Refereeing, etc.)
@@ -44,13 +45,30 @@ CREATE TABLE IF NOT EXISTS courses (
   thumbnail_url TEXT,
   estimated_duration TEXT,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+  access_policy TEXT NOT NULL DEFAULT 'private' CHECK (access_policy IN ('private', 'restricted', 'open')),
+  completion_rules JSONB DEFAULT '{"requireAllLessons": true, "requireAllAssessmentsPassed": true, "minimumPassingScore": 75}'::jsonb,
   authors TEXT[] DEFAULT ARRAY[]::TEXT[],
   published_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Course Modules
+-- 3. Course Enrollments (Core Private Access Control Grant)
+CREATE TABLE IF NOT EXISTS course_enrollments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'suspended', 'expired')),
+  enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+  start_date DATE DEFAULT CURRENT_DATE,
+  completion_date TIMESTAMPTZ,
+  assigned_by TEXT NOT NULL,
+  expiration_date TIMESTAMPTZ,
+  notes TEXT,
+  UNIQUE(user_id, course_id)
+);
+
+-- 4. Course Modules
 CREATE TABLE IF NOT EXISTS course_modules (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
@@ -61,7 +79,7 @@ CREATE TABLE IF NOT EXISTS course_modules (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Learning Items (Lessons)
+-- 5. Learning Items (Lessons)
 CREATE TABLE IF NOT EXISTS learning_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   module_id UUID REFERENCES course_modules(id) ON DELETE CASCADE,
@@ -74,7 +92,7 @@ CREATE TABLE IF NOT EXISTS learning_items (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Content Blocks
+-- 6. Content Blocks
 CREATE TABLE IF NOT EXISTS content_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   learning_item_id UUID REFERENCES learning_items(id) ON DELETE CASCADE,
@@ -84,7 +102,7 @@ CREATE TABLE IF NOT EXISTS content_blocks (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Assessments
+-- 7. Assessments
 CREATE TABLE IF NOT EXISTS assessments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
@@ -98,9 +116,10 @@ CREATE TABLE IF NOT EXISTS assessments (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 7. Learner Progress (Tied to IHDP auth.users)
+-- 8. Learner Progress (Tied to Enrollment)
 CREATE TABLE IF NOT EXISTS learner_progress (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  enrollment_id UUID REFERENCES course_enrollments(id) ON DELETE CASCADE,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
   module_id UUID REFERENCES course_modules(id) ON DELETE CASCADE,
@@ -109,98 +128,90 @@ CREATE TABLE IF NOT EXISTS learner_progress (
   score INT,
   time_spent_seconds INT DEFAULT 0,
   completed_at TIMESTAMPTZ,
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, learning_item_id)
+  last_activity_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(enrollment_id, learning_item_id)
 );
+
+-- 9. Assessment Attempts
+CREATE TABLE IF NOT EXISTS assessment_attempts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  enrollment_id UUID REFERENCES course_enrollments(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  assessment_id UUID REFERENCES assessments(id) ON DELETE CASCADE,
+  score INT NOT NULL,
+  passed BOOLEAN NOT NULL,
+  attempt_number INT NOT NULL,
+  answers JSONB NOT NULL DEFAULT '{}'::jsonb,
+  submitted_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Row Level Security (RLS)
+ALTER TABLE courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE course_enrollments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE course_modules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE learning_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE content_blocks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assessments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE learner_progress ENABLE ROW LEVEL SECURITY;
+
+-- Learners can only read courses they are actively enrolled in
+CREATE POLICY "Learners read enrolled courses" ON courses
+  FOR SELECT USING (
+    id IN (
+      SELECT course_id FROM course_enrollments 
+      WHERE user_id = auth.uid() AND status IN ('active', 'completed')
+    )
+    OR auth.jwt() ->> 'role' IN ('admin', 'head_coach', 'author')
+  );
+
+-- Learners manage their own enrollment progress
+CREATE POLICY "Learners view own progress" ON learner_progress
+  FOR ALL USING (auth.uid() = user_id);
+
+-- Admins and Authors full control over enrollments
+CREATE POLICY "Admins and Authors manage enrollments" ON course_enrollments
+  FOR ALL USING (auth.jwt() ->> 'role' IN ('admin', 'head_coach', 'author'));
 ```
 
 ---
 
-### Step 2: Code File Transfer
+### Step 2: Implement Supabase Repositories
 
-Copy the following directories from this repository into the main IHDP project:
-
-1. **Types**:
-   - `src/types/index.ts` → `src/features/courses/types/index.ts`
-2. **Components**:
-   - `src/components/author/*` → `src/features/courses/components/author/*`
-   - `src/components/learner/*` → `src/features/courses/components/learner/*`
-   - `src/components/common/*` → `src/features/courses/components/common/*`
-3. **Repository Interfaces**:
-   - `src/repositories/interfaces.ts` → `src/features/courses/repositories/interfaces.ts`
-4. **Translations**:
-   - Merge `src/i18n/translations.ts` keys into IHDP's internationalization catalog.
-
----
-
-### Step 3: Implement Supabase Repositories
-
-In `src/features/courses/repositories/supabase/`:
+In `src/features/courses/repositories/supabase/enrollmentRepository.ts`:
 
 ```typescript
 import { supabase } from '@/lib/supabaseClient';
-import { ICourseRepository } from '../interfaces';
-import { Course, Module, LearningItem, ContentBlock } from '../../types';
+import { IEnrollmentRepository } from '../interfaces';
+import { Enrollment, EnrollmentStatus } from '../../types';
 
-export class SupabaseCourseRepository implements ICourseRepository {
-  async getAllCourses(): Promise<Course[]> {
-    const { data, error } = await supabase.from('courses').select('*').order('created_at', { ascending: false });
+export class SupabaseEnrollmentRepository implements IEnrollmentRepository {
+  async getEnrollmentsByUser(userId: string): Promise<Enrollment[]> {
+    const { data, error } = await supabase
+      .from('course_enrollments')
+      .select('*')
+      .eq('user_id', userId);
     if (error) throw error;
-    return data.map(mapDbToCourse);
+    return data;
   }
 
-  async getCourseById(id: string): Promise<Course | null> {
-    const { data, error } = await supabase.from('courses').select('*').eq('id', id).single();
-    if (error || !data) return null;
-    return mapDbToCourse(data);
+  async checkUserAccess(userId: string, courseId: string): Promise<boolean> {
+    const { data } = await supabase
+      .from('course_enrollments')
+      .select('status')
+      .eq('user_id', userId)
+      .eq('course_id', courseId)
+      .in('status', ['active', 'completed'])
+      .single();
+    return !!data;
   }
-
-  async saveCourse(course: Course): Promise<Course> {
-    const payload = mapCourseToDb(course);
-    const { data, error } = await supabase.from('courses').upsert(payload).select().single();
-    if (error) throw error;
-    return mapDbToCourse(data);
-  }
-
-  // Same pattern for modules, items, blocks...
 }
 ```
 
-Then in `src/features/courses/repositories/index.ts`:
-
-```typescript
-import { SupabaseCourseRepository } from './supabase/courseRepository';
-import { SupabaseCategoryRepository } from './supabase/categoryRepository';
-import { SupabaseProgressRepository } from './supabase/progressRepository';
-import { SupabaseAssessmentRepository } from './supabase/assessmentRepository';
-
-export const courseRepository = new SupabaseCourseRepository();
-export const categoryRepository = new SupabaseCategoryRepository();
-export const progressRepository = new SupabaseProgressRepository();
-export const assessmentRepository = new SupabaseAssessmentRepository();
-```
-
 ---
 
-### Step 4: Hook into Existing IHDP Navigation & Auth
+### Step 3: Connect Existing IHDP Navigation & Auth
 
-1. In the main IHDP Sidebar/Navigation, add a top-level link:
-   - Icon: `GraduationCap` or `BookOpen`
-   - Label: `Courses` (or `Corsi` in Italian)
-   - Route: `/courses/*`
-2. Replace `AuthContext` from this standalone app with the existing IHDP `useAuth()` hook:
-   - Trainees map to `currentUser.role === 'coach'` / `'learner'`
-   - Head of Coaches maps to `currentUser.role === 'head_coach'` / `'admin'`
-3. Mount the course view:
-   - Coaches see `CourseCatalog` & `CourseOverview`
-   - Head of Coaches sees `AuthorDashboard` & `CourseEditor`
-
----
-
-## 3. Verification Checklist
-
-- [ ] Categories table seeded with `Coaching` and `Refereeing`.
-- [ ] Head of Coaches can create a new course and add modules.
-- [ ] Ordered content blocks (rich text, video URL, diagrams, quizzes) save to Supabase.
-- [ ] Coach trainees can enroll, track percentage progress, and submit assessments.
-- [ ] Responsive navigation and bilingual translations (EN/IT) verify cleanly on mobile and desktop viewports.
+1. In IHDP's top-level navigation, map the route `/courses` to the `CourseCatalog` component.
+2. Learner view automatically resolves the logged-in coach's `user.id`.
+3. If user has no enrollments, the empty state displays contact details.
+4. If enrolled, the user proceeds with progressive modules and assessments.
